@@ -2,7 +2,7 @@ NOTE: This report is based on WebStrike Lab Created by CyberDefendes and is inte
 
 Incident Overview
 
-On 03/05/2026 at 9:25am on a public-facing web server, suspicious HTTP activity was identified and captured in a PCAP, 
+On 03/04/2026 at 9:25am on a public-facing web server, suspicious HTTP activity was identified and captured in a PCAP, 
 later confirming an attacker successfully uploaded and executed a malicious PHP web shell. The attacker then established a
 reverse shell, attempted to maintain interactive access, and tried to exfiltrate sensitive system information from the server.
 ​
