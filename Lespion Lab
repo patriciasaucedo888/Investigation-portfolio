@@ -1,1 +1,77 @@
 
+Incident Overview
+On 03/05/2026, SOC analysts investigated a disruptive network compromise that initial responders traced back to a single internal user account, raising the likelihood of an insider threat. 
+The investigation focused on reconstructing the insider’s digital footprint, with emphasis on exposed credentials, unsafe coding practices, 
+and potential misuse of corporate resources via public GitHub repositories and linked online accounts.
+
+Objectives
+Identify the insider’s primary online identity and associated GitHub repositories.
+Locate any exposed secrets (API keys, passwords) and assess potential impact.
+Determine whether the insider deployed or prepared cryptocurrency mining software for unauthorized resource use.
+Correlate additional online accounts (social media, gaming) to build a fuller profile of the insider and support attribution.​
+
+Key Investigation Findings
+
+1. Exposed API Key in GitHub Repository
+Review of the insider’s public GitHub profile (EMarseille99) revealed a JavaScript project repository named Project-Build---Custom-Login-Page, 
+which implements a custom login page and is publicly accessible. In the commit history for Login Page.js, a variable named API Key was added with the value:​
+aJFRaLHjMXvYZgLPwiJkroYLGRkNBW Hardcoding this key directly into source code exposes it to anyone viewing the repository
+and represents a direct leak of a likely authentication or service key.
+
+2. Hardcoded and Encoded Credentials
+The same Login Page.js file contained hardcoded login credentials for the user. The password was stored in Base64:​
+Encoded: UGljYXNzb0JhZ3VldHRlOTk=
+Decoded plaintext: PicassoBaguette99
+Base64 is trivially reversible and does not protect secrets, so this represents poor password hygiene and a significant risk if the password is reused across systems.
+
+3. Cryptocurrency Mining Tool (XMRig)
+The insider’s GitHub profile also listed or forked XMRig, a popular open‑source cryptocurrency miner commonly used to mine Monero (XMR). XMRig is widely abused in 
+cryptojacking campaigns where attackers mine cryptocurrency on compromised hosts without authorization, consuming CPU/GPU resources and power. Its presence suggests potential 
+misuse of corporate infrastructure for mining or at least experimentation with mining tooling.
+
+4. OSINT on External Accounts (Steam, Instagram)
+Using Sherlock, an OSINT tool for username enumeration, investigators searched for EMarseille99 across multiple platforms. Results showed:​​
+Steam gaming account: https://steamcommunity.com/id/EMarseille99/
+Instagram account: https://www.instagram.com/EMarseille99/
+Re‑use of the same handle and consistent imagery across these profiles strengthens attribution of the GitHub activity to a specific individual.
+
+5. Travel and Home Location Indicators
+Public posts on the insider’s Instagram profile showed travel photos and location cues:
+Holiday images indicated a recent trip to Singapore.
+Multiple photos from Dubai suggested that the insider’s family likely lives in Dubai.
+These details provide additional context for the insider’s background but are secondary to the credential and tooling exposure.
+
+6. Company Office and Camera Location (Supporting Context)
+As part of the lab, two images were analyzed via reverse image search to derive contextual locations:
+office.jpg: Identified a building in Birmingham, indicating the city where the company office is located.
+Webcam.png: An IP camera view containing a recognizable Notre Dame–related scene was traced to Indiana, identifying the state where the camera is located.
+
+Impact and Risk Assessment
+
+Credential Exposure:
+Hardcoded API key and plaintext password in public GitHub repositories create a high risk of unauthorized access to services using those credentials.
+Password reuse could extend impact to multiple systems.
+Resource Abuse:
+Presence of XMRig indicates risk of cryptojacking if deployed on corporate systems, leading to performance degradation and increased operational costs.
+Insider Threat Indicators:
+Unsafe secret handling, development or use of mining tooling, and broad online exposure under a consistent handle are all indicators warranting insider‑threat and HR follow‑up.
+Overall, the scenario reflects a High risk insider profile driven by leaked credentials and potential unauthorized resource use.
+
+Detection and Response Opportunities
+
+Detection
+Monitor public repositories for leaked secrets using automated secret-scanning tools and alerts.​​
+Use OSINT tooling (for example, Sherlock) to identify and correlate employee-linked accounts that may expose sensitive information.​​
+Detect crypto mining activity via abnormal CPU/GPU usage, known XMRig signatures, and connections to mining pools.​
+Response
+Immediately revoke and rotate any API keys and credentials identified in public repositories.​
+Force password resets and enable MFA on accounts potentially using the exposed password.
+Review logs and access records for any suspicious activity involving services tied to the leaked keys.
+Escalate to insider-threat workflows and coordinate with HR and Legal for appropriate personnel handling.
+
+Lessons Learned
+
+Enforce policies banning secrets in code and mandate the use of secure secret management solutions (vaults, environment variables).​
+Integrate secret scanning into CI/CD and repository workflows to detect leaks at commit time.​​
+Train developers on secure coding practices, password hygiene, and the risks of using reversible encodings like Base64 for credentials.
+Build OSINT-based playbooks for quickly profiling suspected insiders, correlating identities, and assessing public risk exposure.
